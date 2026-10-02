@@ -1,0 +1,14 @@
+{
+  "name": "ひびつむ｜家計簿・お金管理",
+  "short_name": "ひびつむ",
+  "description": "今日のお金を、明日へつむぐ。毎日の収支・予算・貯金目標をまとめて管理できる家計簿アプリ。",
+  "lang": "ja",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "icons": [
+    {"src":"./icons/icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}
+  ]
+}
