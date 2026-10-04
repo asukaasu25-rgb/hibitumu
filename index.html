@@ -977,6 +977,18 @@ main{
 
 
 #hibitsumuSplash{position:fixed;inset:0;z-index:9999;background:#fff;display:flex;align-items:center;justify-content:center;transition:opacity .45s ease,visibility .45s ease}#hibitsumuSplash.hide{opacity:0;visibility:hidden}.splash-inner{text-align:center;padding:24px}.splash-icon{width:104px;height:104px;border-radius:27px;object-fit:cover;box-shadow:0 10px 35px #55aee82a}.splash-title{margin-top:18px;font-size:28px;font-weight:850;letter-spacing:.05em;color:#30343a}.splash-en{margin-top:6px;font-size:9px;letter-spacing:.34em;color:#9298a1}.splash-copy{margin-top:17px;font-size:13px;color:#747b84}
+
+/* ===== ひびつむ v2 ===== */
+.v2-period{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 10px}
+.v2-period button.active{background:var(--accent);color:#fff;border-color:transparent}
+.v2-summary{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px}
+.v2-summary .big{font-size:clamp(18px,4vw,28px);font-weight:800}
+.v2-note{font-size:12px;color:var(--muted);line-height:1.7}
+.v2-actions{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;margin-top:5px}
+.v2-modal{position:fixed;inset:0;background:#0007;display:none;align-items:center;justify-content:center;padding:18px;z-index:9999}
+.v2-modal.open{display:flex}.v2-modal-card{background:var(--card);color:var(--text);border-radius:18px;padding:18px;width:min(620px,100%);max-height:90vh;overflow:auto}
+.v2-help details{border-top:1px solid var(--line);padding:12px 0}.v2-help summary{font-weight:700;cursor:pointer}
+@media(max-width:650px){.v2-summary{grid-template-columns:1fr}.v2-modal{align-items:flex-end;padding:0}.v2-modal-card{border-radius:20px 20px 0 0;max-height:92vh}}
 </style>
 
   <link rel="manifest" href="./manifest.webmanifest">
@@ -2468,6 +2480,24 @@ main{
         <div class="label" style="margin-top:8px">記録・設定・予算・テーマなどをまとめて保存します。</div>
       </div>
 
+
+      <div class="card settings-wide">
+        <div class="section-head"><h2>開始残高</h2></div>
+        <div class="v2-note">ひびつむを使い始める前から持っていたお金です。収入には数えず、口座残高にだけ反映します。</div>
+        <div id="initialBalanceSettings" class="setting-list" style="margin-top:10px"></div>
+        <button class="primary" type="button" onclick="saveInitialBalances()" style="margin-top:8px">開始残高を保存</button>
+      </div>
+
+      <div class="card settings-wide v2-help">
+        <div class="section-head"><h2>ひびつむの使い方</h2></div>
+        <details open><summary>最初にすること</summary><p>「口座」で現金・銀行・電子マネー・クレジットカードを登録し、「開始残高」にひびつむを始める前から持っていた金額を入力します。</p></details>
+        <details><summary>支出・収入・資金移動</summary><p>「＋記録」から登録します。口座間の移動は支出ではなく「資金移動」を使うと、収支を正しく保てます。</p></details>
+        <details><summary>開始残高とは？</summary><p>アプリを始める前から持っていたお金です。日付や時間は不要で、収入実績には含まれません。</p></details>
+        <details><summary>明細を直したい</summary><p>「明細」の各記録にある「編集」から、金額・日付・時間・口座・カテゴリ・店名・メモなどを変更できます。</p></details>
+        <details><summary>使途不明金</summary><p>残高が合わないなど、何に使ったか分からない支出は「使途不明」カテゴリで記録できます。</p></details>
+        <details><summary>データについて</summary><p>現在はこの端末に保存されます。バックアップを書き出しておくと復元できます。クラウド同期はv2の次段階で追加予定です。</p></details>
+      </div>
+
       <!-- ===== 口座 ===== -->
 
       <div class="card">
@@ -2676,6 +2706,110 @@ window.addEventListener("load", () => {
     });
   }
 });
+</script>
+
+
+<div id="editRecordModal" class="v2-modal" onclick="if(event.target===this)closeEditRecord()">
+  <div class="v2-modal-card">
+    <div class="section-head"><h2>明細を編集</h2><button class="soft" type="button" onclick="closeEditRecord()">閉じる</button></div>
+    <input id="editRecordId" type="hidden">
+    <div class="formgrid">
+      <div class="field"><label>種類</label><select id="editType" onchange="refreshEditFields()"><option value="expense">支出</option><option value="income">収入</option><option value="transfer">資金移動</option></select></div>
+      <div class="field"><label>金額</label><input id="editAmount" inputmode="numeric"></div>
+      <div class="field edit-normal"><label>口座</label><select id="editAccount"></select></div>
+      <div class="field edit-normal"><label>カテゴリ</label><select id="editCategory"></select></div>
+      <div class="field edit-normal"><label>店・収入元</label><input id="editStore"></div>
+      <div class="field edit-transfer"><label>移動元</label><select id="editFrom"></select></div>
+      <div class="field edit-transfer"><label>移動先</label><select id="editTo"></select></div>
+      <div class="field"><label>日付</label><input id="editDate" type="date"></div>
+      <div class="field"><label>時間</label><input id="editTime" type="time"></div>
+      <div class="field full"><label>メモ</label><input id="editMemo"></div>
+    </div>
+    <div class="actions"><button class="primary" type="button" onclick="saveEditedRecord()">変更を保存</button><button class="soft" type="button" onclick="closeEditRecord()">キャンセル</button></div>
+  </div>
+</div>
+
+<script>
+/* ===== ひびつむ v2 enhancement layer ===== */
+(function(){
+  if(!settings.initialBalances) settings.initialBalances={};
+  if(!settings.expenseCategories.includes("使途不明")) settings.expenseCategories.push("使途不明");
+  if(!settings.expenseColors["使途不明"]) settings.expenseColors["使途不明"]="#8b8f97";
+  saveSettings();
+
+  window.accountBalance=function(id){
+    let t=Number(settings.initialBalances?.[id])||0;
+    records.forEach(r=>{let a=Number(r.amount)||0;if(r.type==="income"&&r.account===id)t+=a;if(r.type==="expense"&&r.account===id)t-=a;if(r.type==="transfer"&&r.from===id)t-=a;if(r.type==="transfer"&&r.to===id)t+=a});
+    return t;
+  };
+
+  window.renderSummary=function(){
+    let m=monthRecords(),inc=m.filter(r=>r.type==="income").reduce((s,r)=>s+Number(r.amount||0),0),exp=m.filter(r=>r.type==="expense").reduce((s,r)=>s+Number(r.amount||0),0),net=inc-exp;
+    $("heroIncome").textContent=yen(inc);$("heroExpense").textContent=yen(exp);$("heroNet").textContent=yen(net);$("heroNet").style.color=net>=0?settings.theme.income:settings.theme.expense;
+    $("accountCards").innerHTML=settings.accounts.map(a=>{let raw=accountBalance(a.id),credit=a.type==="credit",v=credit?Math.max(0,-raw):raw;return '<div class="account-chip"><div class="label">'+escapeHTML(a.name)+'・'+(credit?"利用額":"残高")+'</div><div class="value">'+yen(v)+'</div></div>'}).join("");
+  };
+
+  let homePeriod="all";
+  function periodRecords(mode){
+    if(mode==="month") return monthRecords();
+    if(mode==="year") return records.filter(r=>String(r.date||"").slice(0,4)===currentMonth().slice(0,4));
+    return records;
+  }
+  window.setHomePeriod=function(mode){homePeriod=mode;document.querySelectorAll("[data-home-period]").forEach(b=>b.classList.toggle("active",b.dataset.homePeriod===mode));renderLifetimeSummary()};
+  window.renderLifetimeSummary=function(){
+    const box=$("v2Lifetime"); if(!box)return; let rs=periodRecords(homePeriod),inc=0,exp=0;
+    rs.forEach(r=>{if(r.type==="income")inc+=Number(r.amount)||0;if(r.type==="expense")exp+=Number(r.amount)||0});
+    $("v2Inc").textContent=yen(inc);$("v2Exp").textContent=yen(exp);$("v2Net").textContent=yen(inc-exp);$("v2Net").style.color=inc-exp>=0?settings.theme.income:settings.theme.expense;
+  };
+  function ensureLifetimeUI(){
+    if($("v2Lifetime"))return;
+    const sec=$("home"); if(!sec)return;
+    const wrap=document.createElement("div");wrap.className="card";wrap.style.marginBottom="14px";wrap.innerHTML='<div class="section-head"><h2>これまでの収支</h2></div><div class="v2-period"><button class="soft" data-home-period="month" onclick="setHomePeriod(\'month\')">今月</button><button class="soft" data-home-period="year" onclick="setHomePeriod(\'year\')">今年</button><button class="soft active" data-home-period="all" onclick="setHomePeriod(\'all\')">全期間</button></div><div id="v2Lifetime" class="v2-summary"><div><div class="label">収入</div><div id="v2Inc" class="big income-color">¥0</div></div><div><div class="label">支出</div><div id="v2Exp" class="big expense-color">¥0</div></div><div><div class="label">収支</div><div id="v2Net" class="big">¥0</div></div></div><div class="v2-note">開始残高と資金移動は収支に含みません。</div>';
+    sec.insertBefore(wrap,sec.firstChild);
+  }
+
+  const oldRecordHTML=window.recordHTML;
+  window.recordHTML=function(r){
+    let html=oldRecordHTML(r);
+    return html.replace('<button type="button" class="danger" data-delete-id="'+escapeHTML(r.id)+'">削除</button>','<div class="v2-actions"><button type="button" class="soft" data-edit-id="'+escapeHTML(r.id)+'">編集</button><button type="button" class="soft" data-duplicate-id="'+escapeHTML(r.id)+'">複製</button><button type="button" class="danger" data-delete-id="'+escapeHTML(r.id)+'">削除</button></div>');
+  };
+
+  window.openEditRecord=function(id){
+    const r=records.find(x=>String(x.id)===String(id));if(!r)return;
+    $("editRecordId").value=r.id;$("editType").value=r.type;$("editAmount").value=r.amount||"";$("editStore").value=r.store||"";$("editDate").value=r.date||"";$("editTime").value=r.time||"";$("editMemo").value=r.memo||"";
+    refreshEditFields(r);$("editRecordModal").classList.add("open");
+  };
+  window.closeEditRecord=function(){$("editRecordModal").classList.remove("open")};
+  window.refreshEditFields=function(existing){
+    const t=$("editType").value,opts=settings.accounts.map(a=>'<option value="'+escapeHTML(a.id)+'">'+escapeHTML(a.name)+'</option>').join("");
+    $("editAccount").innerHTML=opts;$("editFrom").innerHTML=opts;$("editTo").innerHTML=opts;
+    const cats=t==="income"?settings.incomeCategories:settings.expenseCategories;$("editCategory").innerHTML=cats.map(c=>'<option>'+escapeHTML(c)+'</option>').join("");
+    document.querySelectorAll(".edit-normal").forEach(x=>x.style.display=t==="transfer"?"none":"block");document.querySelectorAll(".edit-transfer").forEach(x=>x.style.display=t==="transfer"?"block":"none");
+    if(existing){$("editAccount").value=existing.account||"";$("editCategory").value=existing.category||"";$("editFrom").value=existing.from||"";$("editTo").value=existing.to||""}
+  };
+  window.saveEditedRecord=function(){
+    const r=records.find(x=>String(x.id)===String($("editRecordId").value));if(!r)return;
+    const t=$("editType").value,a=parseMoney($("editAmount").value);if(!a){alert("金額を入力してね");return}
+    r.type=t;r.amount=a;r.date=$("editDate").value;r.time=$("editTime").value;r.memo=$("editMemo").value.trim();
+    if(t==="transfer"){r.from=$("editFrom").value;r.to=$("editTo").value;if(r.from===r.to){alert("移動元と移動先は別の口座を選んでね");return}r.account="";r.category="";r.store=""}
+    else{r.account=$("editAccount").value;r.category=$("editCategory").value;r.store=$("editStore").value.trim();r.from="";r.to=""}
+    saveRecords();closeEditRecord();renderAll();
+  };
+  window.duplicateRecord=function(id){const r=records.find(x=>String(x.id)===String(id));if(!r)return;const n={...r,id:Date.now()+"-"+Math.random().toString(36).slice(2)};records.push(n);saveRecords();renderAll()};
+
+  window.renderInitialBalances=function(){
+    const el=$("initialBalanceSettings");if(!el)return;el.innerHTML=settings.accounts.map(a=>'<div class="setting-item"><span>'+escapeHTML(a.name)+'</span><input data-initial-account="'+escapeHTML(a.id)+'" inputmode="numeric" value="'+(Number(settings.initialBalances?.[a.id])||"")+'" placeholder="0円"></div>').join("");
+  };
+  window.saveInitialBalances=function(){document.querySelectorAll("[data-initial-account]").forEach(x=>settings.initialBalances[x.dataset.initialAccount]=parseMoney(x.value));saveSettings();renderAll();alert("開始残高を保存しました")};
+
+  const oldRenderSettings=window.renderSettings;window.renderSettings=function(){oldRenderSettings();renderInitialBalances()};
+  const oldRenderHome=window.renderHome;window.renderHome=function(){ensureLifetimeUI();oldRenderHome();renderLifetimeSummary()};
+  const oldRenderAll=window.renderAll;window.renderAll=function(){oldRenderAll();ensureLifetimeUI();renderLifetimeSummary();renderInitialBalances()};
+
+  document.addEventListener("click",e=>{let b=e.target.closest("[data-edit-id]");if(b){e.preventDefault();openEditRecord(b.dataset.editId)}b=e.target.closest("[data-duplicate-id]");if(b){e.preventDefault();duplicateRecord(b.dataset.duplicateId)}});
+
+  ensureLifetimeUI();refreshSelects();renderAll();
+})();
 </script>
 
 </body>
