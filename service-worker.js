@@ -1,4 +1,4 @@
-const CACHE_NAME = "hibitsumu-pwa-v18";
+const CACHE_NAME = "hibitsumu-pwa-v19";
 const APP_SHELL = ["./manifest.webmanifest","./icons/icon.svg"];
 
 self.addEventListener("install", event => {
