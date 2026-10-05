@@ -2678,7 +2678,7 @@ init();
 <script>
 window.addEventListener("load", () => {
   if ("serviceWorker" in navigator && location.protocol !== "file:") {
-    navigator.serviceWorker.register("./service-worker.js").catch((error) => {
+    navigator.serviceWorker.register("./service-worker.js",{updateViaCache:"none"}).then(reg=>reg.update()).catch((error) => {
       console.warn("Service Worker registration failed:", error);
     });
   }
