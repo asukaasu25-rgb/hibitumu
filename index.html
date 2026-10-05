@@ -2757,17 +2757,19 @@ window.addEventListener("DOMContentLoaded",()=>{document.body.insertAdjacentHTML
 </script>
 
 <script type="module">
-import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";import {getFirestore,doc,getDoc,setDoc,collection,getDocs,writeBatch,serverTimestamp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";import {getAuth,GoogleAuthProvider,signInWithPopup,signInWithEmailAndPassword,createUserWithEmailAndPassword,signOut,onAuthStateChanged,sendPasswordResetEmail} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";import {getFirestore,doc,getDoc,setDoc,collection,getDocs,writeBatch,serverTimestamp,runTransaction} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
 let googleBusy=false;const app=initializeApp({apiKey:"AIzaSyA28jc6T2M2XFQ_QWyomZj-3inkJBFqO2c",authDomain:"hibitumu-c026d.firebaseapp.com",projectId:"hibitumu-c026d",storageBucket:"hibitumu-c026d.firebasestorage.app",messagingSenderId:"613112492503",appId:"1:613112492503:web:fc84936ba69fccc4eddb92"}),auth=getAuth(app),db=getFirestore(app),google=new GoogleAuthProvider();let ready=false,signup=false,timer;
 const ref=u=>doc(db,"users",u.uid,"data","main"),settingsRef=u=>doc(db,"users",u.uid,"config","settings"),recordsRef=u=>collection(db,"users",u.uid,"records"),badge=()=>document.getElementById("syncBadge");let cloudKnown=new Set(),cloudDeleted=new Set();
 async function writeRecordBatches(u){
-  const current=new Map(records.map(r=>[String(r.id),r])),ops=[],now=Date.now();
-  current.forEach((r,id)=>ops.push({id,data:{...r,modifiedAt:Number(r.modifiedAt)||now,deleted:false}}));
-  cloudKnown.forEach(id=>{if(!current.has(id))ops.push({id,data:{deleted:true,modifiedAt:now}})});
-  for(let i=0;i<ops.length;i+=400){let b=writeBatch(db);ops.slice(i,i+400).forEach(o=>b.set(doc(db,"users",u.uid,"records",o.id),{...o.data,updatedAt:serverTimestamp()},{merge:true}));await b.commit()}
-  cloudKnown=new Set([...current.keys(),...cloudKnown]);cloudDeleted=new Set([...cloudDeleted,...ops.filter(o=>o.data.deleted).map(o=>o.id)]);current.forEach((_,id)=>cloudDeleted.delete(id));
+  const current=new Map(records.map(r=>[String(r.id),r])),now=Date.now();
+  for(const [id,r] of current){
+    const localMs=Number(r.modifiedAt)||now,rr=doc(db,"users",u.uid,"records",id);
+    await runTransaction(db,async tx=>{let snap=await tx.get(rr),d=snap.exists()?snap.data():null,remoteMs=Number(d?.modifiedAt)||(d?.updatedAt?.toMillis?.()||0);if(!snap.exists()||localMs>=remoteMs)tx.set(rr,{...r,modifiedAt:localMs,deleted:false,updatedAt:serverTimestamp()},{merge:true})});
+  }
+  for(const id of cloudKnown){if(current.has(id))continue;let rr=doc(db,"users",u.uid,"records",id);await runTransaction(db,async tx=>{let snap=await tx.get(rr);if(!snap.exists())return;let d=snap.data(),remoteMs=Number(d.modifiedAt)||(d.updatedAt?.toMillis?.()||0),deletedLocal=(settings.trash||[]).find(x=>String(x.id)===id),deleteMs=Number(deletedLocal?.deletedAt)||0;if(deleteMs&&deleteMs>=remoteMs)tx.set(rr,{deleted:true,modifiedAt:deleteMs,updatedAt:serverTimestamp()},{merge:true})})}
+  cloudKnown=new Set([...current.keys(),...cloudKnown]);current.forEach((_,id)=>cloudDeleted.delete(id));
 }
-async function push(){if(!auth.currentUser||!ready)return;try{badge().style.display="inline-block";badge().textContent="同期中…";await Promise.all([writeRecordBatches(auth.currentUser),setDoc(settingsRef(auth.currentUser),{settings,updatedAt:serverTimestamp(),schemaVersion:12},{merge:true})]);badge().textContent="同期済み"}catch(e){console.error(e);badge().textContent="同期エラー"}}
+async function push(){if(!auth.currentUser||!ready)return;try{badge().style.display="inline-block";badge().textContent="同期中…";await Promise.all([writeRecordBatches(auth.currentUser),setDoc(settingsRef(auth.currentUser),{settings,updatedAt:serverTimestamp(),schemaVersion:13},{merge:true})]);badge().textContent="同期済み"}catch(e){console.error(e);badge().textContent="同期エラー"}}
 const sr=window.saveRecords,ss=window.saveSettings;window.saveRecords=function(){sr();clearTimeout(timer);timer=setTimeout(push,400)};window.saveSettings=function(){ss();clearTimeout(timer);timer=setTimeout(push,400)};
 async function load(u){
   ready=false;badge().style.display="inline-block";badge().textContent="同期中…";
@@ -2796,9 +2798,8 @@ async function load(u){
     };
   }
   localStorage.setItem(RECORD_KEY,JSON.stringify(records));localStorage.setItem(SETTINGS_KEY,JSON.stringify(settings));renderAll();
-  await writeRecordBatches(u);await setDoc(settingsRef(u),{settings,updatedAt:serverTimestamp(),schemaVersion:12},{merge:true});
-  if(!legacySnap.exists())await setDoc(ref(u),{records,settings,updatedAt:serverTimestamp(),schemaVersion:10,migratedToPerRecord:true});
-  else await setDoc(ref(u),{migratedToPerRecord:true,migratedAt:serverTimestamp()},{merge:true});
+  await writeRecordBatches(u);await setDoc(settingsRef(u),{settings,updatedAt:serverTimestamp(),schemaVersion:13},{merge:true});
+  if(legacySnap.exists()&&!legacy?.migratedToPerRecord)await setDoc(ref(u),{migratedToPerRecord:true,migratedAt:serverTimestamp()},{merge:true});
   ready=true;badge().textContent="同期済み";
 }
 function err(e){console.error(e);let m=({"auth/invalid-credential":"メールアドレスまたはパスワードを確認してね","auth/email-already-in-use":"このメールアドレスはすでに登録されています","auth/weak-password":"パスワードをもう少し長くしてね","auth/popup-closed-by-user":"Googleログイン画面が閉じられました","auth/popup-blocked":"Googleログイン画面がブラウザにブロックされました","auth/operation-not-allowed":"Firebase側でこのログイン方法がまだ有効になっていません","auth/unauthorized-domain":"このサイトがFirebaseの承認済みドメインに登録されていません"}[e.code])||("ログインできませんでした："+(e.code||e.message));let x=document.getElementById("authError");if(x)x.textContent=m;else alert(m)}
